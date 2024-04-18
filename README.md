@@ -1,3 +1,5 @@
+图片合成打包下载单
+node版本@14
 # merge-pic
 
 ## Project setup
