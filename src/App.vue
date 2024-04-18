@@ -168,27 +168,31 @@ export default {
       });
     },
     async handleBatchDownload(data) {
-      const zip = new JSZip();
-      const promises = [];
+  const zip = new JSZip();
 
-      for (let i = 0; i < data.length; i++) {
-        const dataUrl = data[i];
-        const promise = (async () => {
-          const blob = await this.dataUrlToBlob(dataUrl);
-          const fileName = `image_${i}.${
-            this.way === "toJpeg" ? "jpg" : "png"
-          }`;
-          zip.file(fileName, blob, { binary: true });
-        })();
-        promises.push(promise);
-      }
+  // 创建一个名为 images 的文件夹
+  const folder = zip.folder("images");
 
-      await Promise.all(promises);
+  const promises = [];
 
-      zip.generateAsync({ type: "blob" }).then((content) => {
-        FileSaver.saveAs(content, "batch_output.zip");
-      });
-    },
+  for (let i = 0; i < data.length; i++) {
+    const dataUrl = data[i];
+    const promise = (async () => {
+      const blob = await this.dataUrlToBlob(dataUrl);
+      const fileName = `image_${i}.${this.way === "toJpeg" ? "jpg" : "png"}`;
+      // 将文件添加到文件夹中
+      folder.file(fileName, blob, { binary: true });
+    })();
+    promises.push(promise);
+  }
+
+  await Promise.all(promises);
+
+  // 生成压缩包并下载
+  zip.generateAsync({ type: "blob" }).then((content) => {
+    FileSaver.saveAs(content, "batch_output.zip");
+  });
+},
     dataUrlToBlob(dataUrl) {
       const arr = dataUrl.split(",");
       const mime = arr[0].match(/:(.*?);/)[1];
@@ -202,15 +206,21 @@ export default {
 
       return new Blob([u8arr], { type: mime });
     },
-    outPutAll() {
+    async outPutAll() {
       this.preview(false);
       let dom = document.getElementById("dom");
       let urlList = []
-
-      domtoimage[this.way](dom).then((dataUrl) => {
-        // this.handleBatchDownload([dataUrl]);
-        urlList.push(dataUrl)
-      });
+        for(let j = 0;j<this.logoImgList.length;j++){
+          this.doingIndex = j
+          this.chooseLogoUrl = this.logoImgList[j]
+          for(let i = 0;i<this.clothImgList.length;i++){
+            this.bgcIndex = i
+            await domtoimage[this.way](dom).then((dataUrl) => {
+              urlList.push(dataUrl)
+            });
+          }
+        }
+      this.handleBatchDownload(urlList);
     },
   },
 };
