@@ -169,29 +169,50 @@ export default {
     },
     async handleBatchDownload(data) {
   const zip = new JSZip();
-
-  // 创建一个名为 images 的文件夹
-  const folder = zip.folder("images");
-
+  let folders = []
   const promises = [];
-
-  for (let i = 0; i < data.length; i++) {
-    const dataUrl = data[i];
-    const promise = (async () => {
-      const blob = await this.dataUrlToBlob(dataUrl);
-      const fileName = `image_${i}.${this.way === "toJpeg" ? "jpg" : "png"}`;
-      // 将文件添加到文件夹中
-      folder.file(fileName, blob, { binary: true });
-    })();
-    promises.push(promise);
-  }
-
-  await Promise.all(promises);
+  for(let j = 0;j<this.logoImgList.length;j++){
+    folders[j] = zip.folder("images"+(j+1))
+    for (let i = 0; i < this.clothImgList.length; i++) {
+        const dataUrl = data[j*this.clothImgList.length+i];
+        const promise = (async () => {
+          const blob = await this.dataUrlToBlob(dataUrl);
+          const fileName = `image_${i}.${this.way === "toJpeg" ? "jpg" : "png"}`;
+          // 将文件添加到文件夹中
+          folders[j].file(fileName, blob, { binary: true });
+        })();
+        promises.push(promise);
+      }
+    }
+    await Promise.all(promises);
 
   // 生成压缩包并下载
   zip.generateAsync({ type: "blob" }).then((content) => {
     FileSaver.saveAs(content, "batch_output.zip");
   });
+
+  // 创建一个名为 images 的文件夹
+  // const folder = zip.folder("images");
+
+  // const promises = [];
+
+  // for (let i = 0; i < data.length; i++) {
+  //   const dataUrl = data[i];
+  //   const promise = (async () => {
+  //     const blob = await this.dataUrlToBlob(dataUrl);
+  //     const fileName = `image_${i}.${this.way === "toJpeg" ? "jpg" : "png"}`;
+  //     // 将文件添加到文件夹中
+  //     folder.file(fileName, blob, { binary: true });
+  //   })();
+  //   promises.push(promise);
+  // }
+
+  // await Promise.all(promises);
+
+  // // 生成压缩包并下载
+  // zip.generateAsync({ type: "blob" }).then((content) => {
+  //   FileSaver.saveAs(content, "batch_output.zip");
+  // });
 },
     dataUrlToBlob(dataUrl) {
       const arr = dataUrl.split(",");
