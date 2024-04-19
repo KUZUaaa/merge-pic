@@ -76,17 +76,20 @@ export default {
       chooseLogoUrl: "", //选中的logo
       doingIndex: "", //当前操作项
       logoPositionObjList: [],
+      nameList:[],
+      logosNameList:[]
     };
   },
   mounted() {},
   methods: {
     async handleClothFile(e) {
       const files = e.target.files;
-
+      this.nameList = Array.from(files).map(item=>{
+       return item.name.split('.')[0]
+      })
       // 遍历选择的文件列表
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-
         // 使用 FileReader API 读取文件内容为 Data URL
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -99,7 +102,9 @@ export default {
     },
     async handleImgFile(e) {
       const files = e.target.files;
-
+      this.logosNameList = Array.from(files).map(item=>{
+       return item.name.split('.')[0]
+      })
       // 遍历选择的文件列表
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -172,12 +177,12 @@ export default {
   let folders = []
   const promises = [];
   for(let j = 0;j<this.logoImgList.length;j++){
-    folders[j] = zip.folder("images"+(j+1))
+    folders[j] = zip.folder(`${this.logosNameList[j]}`)
     for (let i = 0; i < this.clothImgList.length; i++) {
         const dataUrl = data[j*this.clothImgList.length+i];
         const promise = (async () => {
           const blob = await this.dataUrlToBlob(dataUrl);
-          const fileName = `image_${i}.${this.way === "toJpeg" ? "jpg" : "png"}`;
+          const fileName = `${this.nameList[i]}.${this.way === "toJpeg" ? "jpg" : "png"}`;
           // 将文件添加到文件夹中
           folders[j].file(fileName, blob, { binary: true });
         })();
