@@ -84,12 +84,12 @@ export default {
   methods: {
     async handleClothFile(e) {
       const files = e.target.files;
-      const logoData = Array.from(files, (item, index) => ({
-    name: item.name.split(".")[0],
-    index,
-  }));
+  //     const logoData = Array.from(files, (item, index) => ({
+  //   name: item.name.split(".")[0],
+  //   index,
+  // }));
 
-      this.clothNames.push(...logoData.map((entry) => entry.name))
+  //     this.clothNames.push(...logoData.map((entry) => entry.name))
       // 遍历选择的文件列表
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -101,17 +101,18 @@ export default {
         // 当文件读取完成时，将 Data URL 添加到 clothImgList
         reader.onload = () => {
           this.clothImgList.push(reader.result);
+          this.clothNames.push(file.name.split('.')[0])
         };
       }
     },
     async handleImgFile(e) {
       const files = e.target.files;
-      const logoData = Array.from(files, (item, index) => ({
-    name: item.name.split(".")[0],
-    index,
-  }));
-  this.logoNames.push(...logoData.map((entry) => entry.name))
-      console.log(this.logoNames);
+  //     const logoData = Array.from(files, (item, index) => ({
+  //   name: item.name.split(".")[0],
+  //   index,
+  // }));
+  // this.logoNames.push(...logoData.map((entry) => entry.name))
+  //     console.log(this.logoNames);
       // 遍历选择的文件列表
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -123,6 +124,7 @@ export default {
         // 当文件读取完成时，将 Data URL 添加到 logoImgList
         reader.onload = () => {
           this.logoImgList.push(reader.result);
+          this.logoNames.push(file.name.split('.')[0])
           this.logoPositionObjList.push({
             transform: { x: 463, y: 376, width: 304, height: 304, rotation: 0 },
             active: true,
@@ -229,38 +231,36 @@ export default {
       return new Blob([u8arr], { type: mime });
     },
     async adjustImageSize(dataUrl, targetWidth = 1350, targetHeight = 1800) {
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-      const bitmap = await createImageBitmap(blob);
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  const img = await createImageBitmap(blob);
 
-      const originalWidth = bitmap.width;
-      const originalHeight = bitmap.height;
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
 
-      // 计算调整后的宽度和高度，保持宽高比
-      let newWidth = targetWidth;
-      let newHeight = (originalHeight / originalWidth) * targetWidth;
-      if (newHeight > targetHeight) {
-        newHeight = targetHeight;
-        newWidth = (originalWidth / originalHeight) * targetHeight;
+  const ctx = canvas.getContext("2d");
+
+  // Compute the scaled dimensions while maintaining aspect ratio
+  const scaledWidth = img.width * (targetHeight / img.height);
+  const scaledHeight = img.height * (targetWidth / img.width);
+
+  // Center the image within the canvas
+  const x = (canvas.width - scaledWidth) / 2;
+  const y = (canvas.height - scaledHeight) / 2;
+
+  ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+      } else {
+        reject(new Error("Failed to convert canvas to Blob"));
       }
-
-      const canvas = document.createElement("canvas");
-      canvas.width = newWidth;
-      canvas.height = newHeight;
-
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(bitmap, 0, 0, newWidth, newHeight);
-
-      return new Promise((resolve, reject) => {
-        canvas.toBlob((blob) => {
-          if (blob) {
-            resolve(blob);
-          } else {
-            reject(new Error("Failed to convert canvas to Blob"));
-          }
-        }, this.way === "toJpeg" ? "image/jpeg" : "image/png");
-      });
-    }
+    }, this.way === "toJpeg" ? "image/jpeg" : "image/png");
+  });
+}
   }
 };
 </script>
@@ -272,7 +272,7 @@ export default {
   display: flex;
 
   .left {
-    width: 1350px;
+    width: 1300px;
     height: fit-content;
   }
   .right {
