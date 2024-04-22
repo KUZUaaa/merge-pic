@@ -140,23 +140,23 @@ export default {
       this.chooseLogoUrl = url;
       this.doingIndex = index;
     },
-    outPutOne() {
-      this.preview(false);
-      let dom = document.getElementById("dom");
-      domtoimage[this.way](dom)
-        .then((dataUrl) => {
-          //输出图片的Base64,dataUrl
-          // 下载到PC
-          const a = document.createElement("a"); // 生成一个a元素
-          const event = new MouseEvent("click"); // 创建一个单击事件
-          a.download = "one"; // 设置图片名称没有设置则为默认
-          a.href = dataUrl; // 将生成的URL设置为a.href属性
-          a.dispatchEvent(event); // 触发a的单击事件
-        })
-        .catch(function (error) {
-          console.error("oops, something went wrong!", error);
-        });
-    },
+    async outPutOne() {
+  this.preview(false);
+  let dom = document.getElementById("dom");
+
+  await domtoimage[this.way](dom)
+    .then(async (dataUrl) => {
+      const blob = await this.adjustImageSize(dataUrl, 1350, 1800);
+      const a = document.createElement("a");
+      const event = new MouseEvent("click");
+      a.download = "one";
+      a.href = URL.createObjectURL(blob);
+      a.dispatchEvent(event);
+    })
+    .catch(function (error) {
+      console.error("oops, something went wrong!", error);
+    });
+},
     getFile(url) {
       return new Promise((resolve, reject) => {
         axios({
@@ -179,45 +179,18 @@ export default {
   for(let j = 0;j<this.logoImgList.length;j++){
     folders[j] = zip.folder(`${this.logosNameList[j]}`)
     for (let i = 0; i < this.clothImgList.length; i++) {
-        const dataUrl = data[j*this.clothImgList.length+i];
-        const promise = (async () => {
-          const blob = await this.dataUrlToBlob(dataUrl);
-          const fileName = `${this.nameList[i]}.${this.way === "toJpeg" ? "jpg" : "png"}`;
-          // 将文件添加到文件夹中
-          folders[j].file(fileName, blob, { binary: true });
-        })();
-        promises.push(promise);
-      }
+        const blob = data[j*this.clothImgList.length+i];
+        const fileName = `${this.nameList[i]}.${this.way === "toJpeg" ? "jpg" : "png"}`;
+        // 将文件添加到文件夹中
+        folders[j].file(fileName, blob, { binary: true });
     }
-    await Promise.all(promises);
+  }
+  await Promise.all(promises);
 
   // 生成压缩包并下载
   zip.generateAsync({ type: "blob" }).then((content) => {
     FileSaver.saveAs(content, "batch_output.zip");
   });
-
-  // 创建一个名为 images 的文件夹
-  // const folder = zip.folder("images");
-
-  // const promises = [];
-
-  // for (let i = 0; i < data.length; i++) {
-  //   const dataUrl = data[i];
-  //   const promise = (async () => {
-  //     const blob = await this.dataUrlToBlob(dataUrl);
-  //     const fileName = `image_${i}.${this.way === "toJpeg" ? "jpg" : "png"}`;
-  //     // 将文件添加到文件夹中
-  //     folder.file(fileName, blob, { binary: true });
-  //   })();
-  //   promises.push(promise);
-  // }
-
-  // await Promise.all(promises);
-
-  // // 生成压缩包并下载
-  // zip.generateAsync({ type: "blob" }).then((content) => {
-  //   FileSaver.saveAs(content, "batch_output.zip");
-  // });
 },
     dataUrlToBlob(dataUrl) {
       const arr = dataUrl.split(",");
@@ -233,21 +206,53 @@ export default {
       return new Blob([u8arr], { type: mime });
     },
     async outPutAll() {
-      this.preview(false);
-      let dom = document.getElementById("dom");
-      let urlList = []
-        for(let j = 0;j<this.logoImgList.length;j++){
-          this.doingIndex = j
-          this.chooseLogoUrl = this.logoImgList[j]
-          for(let i = 0;i<this.clothImgList.length;i++){
-            this.bgcIndex = i
-            await domtoimage[this.way](dom).then((dataUrl) => {
-              urlList.push(dataUrl)
-            });
-          }
-        }
-      this.handleBatchDownload(urlList);
-    },
+  this.preview(false);
+  let dom = document.getElementById("dom");
+  let urlList = []
+
+  for (let j = 0; j < this.logoImgList.length; j++) {
+    this.doingIndex = j
+    this.chooseLogoUrl = this.logoImgList[j]
+    for (let i = 0; i < this.clothImgList.length; i++) {
+      this.bgcIndex = i
+
+      // 生成原始Data URL
+      const dataUrl = await domtoimage[this.way](dom).then((dataUrl) => {
+        return dataUrl;
+      });
+
+      // 调整图片尺寸并获取调整后的Blob对象
+      const adjustedBlob = await this.adjustImageSize(dataUrl, 1350, 1800);
+
+      // 将调整后的Blob对象添加到urlList数组
+      urlList.push(adjustedBlob);
+    }
+  }
+
+  this.handleBatchDownload(urlList);
+},
+    async adjustImageSize(dataUrl, targetWidth = 1350, targetHeight = 1800) {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  const bitmap = await createImageBitmap(blob);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+      } else {
+        reject(new Error("Failed to convert canvas to Blob"));
+      }
+    }, this.way === "toJpeg" ? "image/jpeg" : "image/png");
+  });
+}
   },
 };
 </script>
