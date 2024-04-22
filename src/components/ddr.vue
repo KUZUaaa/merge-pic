@@ -13,7 +13,7 @@ export default {
       type:Object,
       default:()=>{
         return {
-          transform: { x: 172, y: 121, width: 114, height: 114, rotation: 0 },
+          transform: { x: 463, y: 376, width: 304, height: 304, rotation: 0 },
           active: true,
           rotatable: true,
           draggalbe: true,

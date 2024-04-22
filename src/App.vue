@@ -69,27 +69,31 @@ export default {
   },
   data() {
     return {
-      bgcIndex:0,
+      bgcIndex: 0,
       way: "toPng",
       clothImgList: [],
       logoImgList: [],
       chooseLogoUrl: "", //选中的logo
       doingIndex: "", //当前操作项
       logoPositionObjList: [],
-      nameList:[],
-      logosNameList:[]
+      clothNames: [],
+      logoNames: [],
     };
   },
   mounted() {},
   methods: {
     async handleClothFile(e) {
       const files = e.target.files;
-      this.nameList = Array.from(files).map(item=>{
-       return item.name.split('.')[0]
-      })
+      const logoData = Array.from(files, (item, index) => ({
+    name: item.name.split(".")[0],
+    index,
+  }));
+
+      this.clothNames.push(...logoData.map((entry) => entry.name))
       // 遍历选择的文件列表
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+
         // 使用 FileReader API 读取文件内容为 Data URL
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -102,9 +106,12 @@ export default {
     },
     async handleImgFile(e) {
       const files = e.target.files;
-      this.logosNameList = Array.from(files).map(item=>{
-       return item.name.split('.')[0]
-      })
+      const logoData = Array.from(files, (item, index) => ({
+    name: item.name.split(".")[0],
+    index,
+  }));
+  this.logoNames.push(...logoData.map((entry) => entry.name))
+      console.log(this.logoNames);
       // 遍历选择的文件列表
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -117,7 +124,7 @@ export default {
         reader.onload = () => {
           this.logoImgList.push(reader.result);
           this.logoPositionObjList.push({
-            transform: { x: 172, y: 116, width: 114, height: 114, rotation: 0 },
+            transform: { x: 463, y: 376, width: 304, height: 304, rotation: 0 },
             active: true,
             rotatable: true,
             draggalbe: true,
@@ -141,57 +148,73 @@ export default {
       this.doingIndex = index;
     },
     async outPutOne() {
-  this.preview(false);
-  let dom = document.getElementById("dom");
+      this.preview(false);
+      let dom = document.getElementById("dom");
 
-  await domtoimage[this.way](dom)
-    .then(async (dataUrl) => {
-      const blob = await this.adjustImageSize(dataUrl, 1350, 1800);
-      const a = document.createElement("a");
-      const event = new MouseEvent("click");
-      a.download = "one";
-      a.href = URL.createObjectURL(blob);
-      a.dispatchEvent(event);
-    })
-    .catch(function (error) {
-      console.error("oops, something went wrong!", error);
-    });
-},
-    getFile(url) {
-      return new Promise((resolve, reject) => {
-        axios({
-          method: "get",
-          url,
-          responseType: "arraybuffer",
+      await domtoimage[this.way](dom)
+        .then(async (dataUrl) => {
+          const blob = await this.adjustImageSize(dataUrl, 1350, 1800);
+          const a = document.createElement("a");
+          const event = new MouseEvent("click");
+          a.download = `${this.clothNames[this.bgcIndex]}.png`;
+          a.href = URL.createObjectURL(blob);
+          a.dispatchEvent(event);
         })
-          .then((data) => {
-            resolve(data.data);
-          })
-          .catch((error) => {
-            reject(error.toString());
+        .catch(function (error) {
+          console.error("oops, something went wrong!", error);
+        });
+    },
+    async outPutAll() {
+      this.preview(false);
+      let dom = document.getElementById("dom");
+      let urlList = [];
+
+      for (let j = 0; j < this.logoImgList.length; j++) {
+        this.doingIndex = j;
+        this.chooseLogoUrl = this.logoImgList[j];
+        for (let i = 0; i < this.clothImgList.length; i++) {
+          this.bgcIndex = i;
+
+          // 生成原始Data URL
+          const dataUrl = await domtoimage[this.way](dom).then((dataUrl) => {
+            return dataUrl;
           });
-      });
+
+          // 调整图片尺寸并获取调整后的Blob对象
+          const adjustedBlob = await this.adjustImageSize(
+            dataUrl,
+            1350,
+            1800
+          );
+
+          // 将调整后的Blob对象添加到urlList数组
+          urlList.push(adjustedBlob);
+        }
+      }
+
+      this.handleBatchDownload(urlList);
     },
     async handleBatchDownload(data) {
   const zip = new JSZip();
-  let folders = []
-  const promises = [];
-  for(let j = 0;j<this.logoImgList.length;j++){
-    folders[j] = zip.folder(`${this.logosNameList[j]}`)
+
+  for (let j = 0; j < this.logoImgList.length; j++) {
+    const folderName = this.logoNames[j]; // 使用导入的 logo 图片名称作为文件夹名称
+    const folder = zip.folder(folderName);
+
     for (let i = 0; i < this.clothImgList.length; i++) {
-        const blob = data[j*this.clothImgList.length+i];
-        const fileName = `${this.nameList[i]}.${this.way === "toJpeg" ? "jpg" : "png"}`;
-        // 将文件添加到文件夹中
-        folders[j].file(fileName, blob, { binary: true });
+      const blob = data[j * this.clothImgList.length + i];
+      const fileName = `${this.clothNames[i]}.${this.way === "toJpeg" ? "jpg" : "png"}`;
+      // 将文件添加到文件夹中
+      folder.file(fileName, blob, { binary: true });
     }
   }
-  await Promise.all(promises);
 
   // 生成压缩包并下载
   zip.generateAsync({ type: "blob" }).then((content) => {
     FileSaver.saveAs(content, "batch_output.zip");
   });
 },
+
     dataUrlToBlob(dataUrl) {
       const arr = dataUrl.split(",");
       const mime = arr[0].match(/:(.*?);/)[1];
@@ -205,64 +228,51 @@ export default {
 
       return new Blob([u8arr], { type: mime });
     },
-    async outPutAll() {
-  this.preview(false);
-  let dom = document.getElementById("dom");
-  let urlList = []
+    async adjustImageSize(dataUrl, targetWidth = 1350, targetHeight = 1800) {
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      const bitmap = await createImageBitmap(blob);
 
-  for (let j = 0; j < this.logoImgList.length; j++) {
-    this.doingIndex = j
-    this.chooseLogoUrl = this.logoImgList[j]
-    for (let i = 0; i < this.clothImgList.length; i++) {
-      this.bgcIndex = i
+      const originalWidth = bitmap.width;
+      const originalHeight = bitmap.height;
 
-      // 生成原始Data URL
-      const dataUrl = await domtoimage[this.way](dom).then((dataUrl) => {
-        return dataUrl;
+      // 计算调整后的宽度和高度，保持宽高比
+      let newWidth = targetWidth;
+      let newHeight = (originalHeight / originalWidth) * targetWidth;
+      if (newHeight > targetHeight) {
+        newHeight = targetHeight;
+        newWidth = (originalWidth / originalHeight) * targetHeight;
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(bitmap, 0, 0, newWidth, newHeight);
+
+      return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error("Failed to convert canvas to Blob"));
+          }
+        }, this.way === "toJpeg" ? "image/jpeg" : "image/png");
       });
-
-      // 调整图片尺寸并获取调整后的Blob对象
-      const adjustedBlob = await this.adjustImageSize(dataUrl, 1350, 1800);
-
-      // 将调整后的Blob对象添加到urlList数组
-      urlList.push(adjustedBlob);
     }
   }
-
-  this.handleBatchDownload(urlList);
-},
-    async adjustImageSize(dataUrl, targetWidth = 1350, targetHeight = 1800) {
-  const response = await fetch(dataUrl);
-  const blob = await response.blob();
-  const bitmap = await createImageBitmap(blob);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = targetWidth;
-  canvas.height = targetHeight;
-
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
-
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) {
-        resolve(blob);
-      } else {
-        reject(new Error("Failed to convert canvas to Blob"));
-      }
-    }, this.way === "toJpeg" ? "image/jpeg" : "image/png");
-  });
-}
-  },
 };
 </script>
+
+         
 
 <style scoped lang="scss">
 #app {
   display: flex;
 
   .left {
-    width: 470px;
+    width: 1350px;
     height: fit-content;
   }
   .right {
